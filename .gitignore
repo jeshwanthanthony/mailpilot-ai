@@ -1,17 +1,13 @@
-# Python
-venv/
-__pycache__/
-*.pyc
-
-# Node
-node_modules/
-.next/
-npm-debug.log*
-
-# Env
+.DS_Store
 .env
 .env.local
-
-# OS junk
-.DS_Store
-
+.next/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+backend/venv/
+coverage/
+frontend/node_modules/
+npm-debug.log*
