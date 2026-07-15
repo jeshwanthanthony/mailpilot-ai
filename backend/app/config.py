@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "MailPilot API"
+    app_name: str = "MailPilot AI API"
     environment: str = "development"
     base_url: str = "http://127.0.0.1:8000"
     frontend_url: str = "http://localhost:3000"
@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     supabase_service_key: str | None = None
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.4-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+    rag_match_threshold: float = 0.68
+    rag_max_chunks: int = 5
+    triage_service_url: str | None = None
+    triage_timeout_seconds: float = 2.0
 
     @property
     def allowed_origins(self) -> list[str]:

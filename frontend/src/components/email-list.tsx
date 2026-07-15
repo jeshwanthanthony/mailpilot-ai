@@ -84,6 +84,18 @@ export function EmailList({
                   <span className={`mt-0.5 block truncate text-[13px] ${email.is_unread ? "font-semibold text-[#303841]" : "text-[#58636f]"}`}>
                     {email.subject}
                   </span>
+                  {(email.priority === "urgent" || email.priority === "high") && (
+                    <span
+                      className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                        email.priority === "urgent"
+                          ? "bg-red-50 text-red-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                      title={email.priority_signals?.join(", ")}
+                    >
+                      {email.priority} · {email.priority_score}
+                    </span>
+                  )}
                   <span className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-[#7a848f]">
                     {email.snippet}
                   </span>

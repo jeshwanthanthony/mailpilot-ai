@@ -10,13 +10,14 @@ import {
   X,
 } from "lucide-react";
 import { formatEmailTime, initials, senderName } from "@/lib/time";
-import type { DraftTone, EmailBody, EmailSummary } from "@/lib/types";
+import type { DraftTone, EmailBody, EmailSummary, KnowledgeCitation } from "@/lib/types";
 
 type MessagePaneProps = {
   email: EmailSummary | null;
   body: EmailBody | null;
   bodyLoading: boolean;
   draftText: string;
+  sources: KnowledgeCitation[];
   draftOpen: boolean;
   draftLoading: boolean;
   sending: boolean;
@@ -40,6 +41,7 @@ export function MessagePane({
   body,
   bodyLoading,
   draftText,
+  sources,
   draftOpen,
   draftLoading,
   sending,
@@ -156,11 +158,23 @@ export function MessagePane({
               className="mt-3 h-9 w-full rounded-md border border-[#d5dbe1] bg-[#f8f9fa] px-3 text-xs text-[#343d46] outline-none placeholder:text-[#929aa3]"
             />
             {draftText ? (
-              <textarea
-                value={draftText}
-                onChange={(event) => onDraftChange(event.target.value)}
-                className="mt-2 h-32 w-full resize-none rounded-md border border-[#d5dbe1] p-3 text-sm leading-6 text-[#303841] outline-none"
-              />
+              <>
+                <textarea
+                  value={draftText}
+                  onChange={(event) => onDraftChange(event.target.value)}
+                  className="mt-2 h-32 w-full resize-none rounded-md border border-[#d5dbe1] p-3 text-sm leading-6 text-[#303841] outline-none"
+                />
+                {sources.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-[#68737e]">
+                    <span className="font-semibold">Grounded with</span>
+                    {sources.map((source) => (
+                      <span key={`${source.document_id}-${source.content.slice(0, 20)}`} className="rounded bg-[#edf7f4] px-2 py-1 font-medium text-[#176b5b]" title={`${Math.round(source.similarity * 100)}% semantic match`}>
+                        {source.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="mt-2 grid h-24 place-items-center rounded-md border border-dashed border-[#ccd3d9] bg-[#fafbfb]">
                 <button

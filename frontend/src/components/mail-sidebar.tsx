@@ -1,23 +1,27 @@
-import { Inbox, LogOut, MailCheck, MailOpen, PlugZap } from "lucide-react";
-import type { MailFilter } from "@/lib/types";
+import { BookOpenText, Inbox, LogOut, MailCheck, MailOpen, PlugZap } from "lucide-react";
+import type { MailFilter, WorkspaceView } from "@/lib/types";
 
 type MailSidebarProps = {
   filter: MailFilter;
+  view: WorkspaceView;
   unreadCount: number;
   mode: "demo" | "live";
   accountEmail: string;
   connectUrl: string;
   onFilterChange: (filter: MailFilter) => void;
+  onViewChange: (view: WorkspaceView) => void;
   onLogout: () => void;
 };
 
 export function MailSidebar({
   filter,
+  view,
   unreadCount,
   mode,
   accountEmail,
   connectUrl,
   onFilterChange,
+  onViewChange,
   onLogout,
 }: MailSidebarProps) {
   const items: { id: MailFilter; label: string; icon: typeof Inbox; count?: number }[] = [
@@ -31,7 +35,7 @@ export function MailSidebar({
         <span className="grid size-8 place-items-center rounded-md bg-[#176b5b] text-white">
           <MailCheck size={18} strokeWidth={2.3} />
         </span>
-        <span className="text-[17px] font-bold text-[#20242a]">MailPilot</span>
+        <span className="text-[17px] font-bold text-[#20242a]">MailPilot AI</span>
       </div>
 
       <nav className="flex-1 px-3 py-5" aria-label="Mailbox">
@@ -39,12 +43,15 @@ export function MailSidebar({
         <div className="space-y-1">
           {items.map((item) => {
             const Icon = item.icon;
-            const active = filter === item.id;
+            const active = view === "mail" && filter === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onFilterChange(item.id)}
+                onClick={() => {
+                  onViewChange("mail");
+                  onFilterChange(item.id);
+                }}
                 className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition-colors ${
                   active
                     ? "bg-white font-semibold text-[#20242a] shadow-sm"
@@ -61,6 +68,18 @@ export function MailSidebar({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => onViewChange("knowledge")}
+            className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm transition-colors ${
+              view === "knowledge"
+                ? "bg-white font-semibold text-[#20242a] shadow-sm"
+                : "text-[#5d6874] hover:bg-white/70 hover:text-[#20242a]"
+            }`}
+          >
+            <BookOpenText size={17} />
+            <span>Knowledge</span>
+          </button>
         </div>
       </nav>
 

@@ -1,13 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, MailCheck, RefreshCw, WifiOff, X } from "lucide-react";
+import { AlertCircle, BookOpenText, MailCheck, RefreshCw, WifiOff, X } from "lucide-react";
 import { EmailList } from "@/components/email-list";
+import { KnowledgePanel } from "@/components/knowledge-panel";
 import { MailSidebar } from "@/components/mail-sidebar";
 import { MessagePane } from "@/components/message-pane";
 import { apiUrl, mailApi } from "@/lib/api";
 import { demoBodies, demoDraft, demoEmails } from "@/lib/demo";
-import type { DraftTone, EmailBody, EmailSummary, MailFilter } from "@/lib/types";
+import type {
+  DraftTone,
+  EmailBody,
+  EmailSummary,
+  KnowledgeCitation,
+  MailFilter,
+  WorkspaceView,
+} from "@/lib/types";
 
 type WorkspaceMode = "checking" | "demo" | "live";
 
@@ -22,6 +30,7 @@ export function MailWorkspace() {
   const [emails, setEmails] = useState<EmailSummary[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [filter, setFilter] = useState<MailFilter>("inbox");
+  const [view, setView] = useState<WorkspaceView>("mail");
   const [query, setQuery] = useState("");
   const [nextToken, setNextToken] = useState("");
   const [loading, setLoading] = useState(true);
@@ -29,6 +38,7 @@ export function MailWorkspace() {
   const [bodyLoading, setBodyLoading] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [draftText, setDraftText] = useState("");
+  const [draftSources, setDraftSources] = useState<KnowledgeCitation[]>([]);
   const [draftLoading, setDraftLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [tone, setTone] = useState<DraftTone>("professional");
@@ -98,7 +108,7 @@ export function MailWorkspace() {
         setMode("demo");
         setEmails(demoEmails);
         setSelectedId(initialMessageId(demoEmails));
-        setError("The API is offline, so MailPilot switched to demo data.");
+        setError("The API is offline, so MailPilot AI switched to demo data.");
         setLoading(false);
       }
     }
@@ -147,6 +157,7 @@ export function MailWorkspace() {
     setSelectedId(email.id);
     setDraftOpen(false);
     setDraftText("");
+    setDraftSources([]);
     setInstructions("");
     if (email.is_unread) {
       setEmails((current) =>
@@ -219,6 +230,7 @@ export function MailWorkspace() {
       } else {
         const response = await mailApi.draft(selectedEmail.id, tone, instructions);
         setDraftText(response.draft_text);
+        setDraftSources(response.sources ?? []);
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not generate a draft");
@@ -238,6 +250,7 @@ export function MailWorkspace() {
       setNotice(mode === "demo" ? "Demo reply completed" : "Reply sent");
       setDraftOpen(false);
       setDraftText("");
+      setDraftSources([]);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not send the reply");
     } finally {
@@ -264,7 +277,7 @@ export function MailWorkspace() {
           <span className="grid size-9 place-items-center rounded-md bg-[#176b5b] text-white">
             <MailCheck size={19} />
           </span>
-          Opening MailPilot
+          Opening MailPilot AI
         </div>
       </main>
     );
@@ -275,11 +288,13 @@ export function MailWorkspace() {
       <div className="flex h-full">
         <MailSidebar
           filter={filter}
+          view={view}
           unreadCount={emails.filter((email) => email.is_unread).length}
           mode={mode}
           accountEmail={accountEmail}
           connectUrl={mailApi.connectUrl}
           onFilterChange={setFilter}
+          onViewChange={setView}
           onLogout={logout}
         />
 
@@ -288,10 +303,13 @@ export function MailWorkspace() {
             <span className="grid size-8 place-items-center rounded-md bg-[#176b5b] text-white">
               <MailCheck size={17} />
             </span>
-            <span className="font-bold">MailPilot</span>
+            <span className="font-bold">MailPilot AI</span>
             <span className={`ml-auto rounded px-2 py-1 text-[10px] font-bold uppercase ${mode === "live" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               {mode}
             </span>
+            <button type="button" onClick={() => setView((current) => current === "mail" ? "knowledge" : "mail")} className="grid size-8 place-items-center rounded-md text-[#65707c] hover:bg-[#eef1f4]" title={view === "mail" ? "Open reply knowledge" : "Back to inbox"}>
+              <BookOpenText size={16} />
+            </button>
             <button type="button" onClick={() => (mode === "live" ? loadLiveInbox(query) : setEmails([...demoEmails]))} className="grid size-8 place-items-center rounded-md text-[#65707c] hover:bg-[#eef1f4]" title="Refresh inbox">
               <RefreshCw size={16} />
             </button>
@@ -308,6 +326,10 @@ export function MailWorkspace() {
           )}
 
           <div className="flex min-h-0 flex-1">
+            {view === "knowledge" ? (
+              <KnowledgePanel mode={mode} onError={setError} onNotice={setNotice} />
+            ) : (
+              <>
             <div className={`${selectedEmail ? "hidden md:flex" : "flex"} h-full w-full md:w-auto`}>
               <EmailList
                 emails={visibleEmails}
@@ -327,6 +349,7 @@ export function MailWorkspace() {
                 body={body}
                 bodyLoading={bodyLoading}
                 draftText={draftText}
+                sources={draftSources}
                 draftOpen={draftOpen}
                 draftLoading={draftLoading}
                 sending={sending}
@@ -345,6 +368,8 @@ export function MailWorkspace() {
                 onSend={sendReply}
               />
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Any
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.ai import ReplyWriter
+from app.ai import EmbeddingWriter, ReplyWriter
 from app.config import get_settings
 from app.gmail import (
     build_reply,
@@ -22,6 +23,7 @@ from app.gmail import (
     sanitize_html,
     summarize_message,
 )
+from app.knowledge import KnowledgeService
 from app.models import (
     ActionResponse,
     ConnectionStatus,
@@ -30,16 +32,23 @@ from app.models import (
     EmailAction,
     EmailBody,
     EmailPage,
+    KnowledgeDocument,
+    KnowledgeDocumentCreate,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResponse,
     SendReplyRequest,
     SendReplyResponse,
 )
 from app.repository import ConnectionRepository
+from app.triage import TriageClient
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-logger = logging.getLogger("mailpilot")
+logger = logging.getLogger("mailpilot_ai")
 settings = get_settings()
 repository = ConnectionRepository(settings)
 reply_writer = ReplyWriter(settings)
+knowledge_service = KnowledgeService(settings, repository, EmbeddingWriter(settings))
+triage_client = TriageClient(settings)
 
 app = FastAPI(
     title=settings.app_name,
@@ -94,7 +103,12 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "version": app.version,
-        "integrations": {"gmail": settings.gmail_ready, "openai": bool(settings.openai_api_key)},
+        "integrations": {
+            "gmail": settings.gmail_ready,
+            "openai": bool(settings.openai_api_key),
+            "vector_store": bool(settings.supabase_url and settings.supabase_service_key),
+            "triage_service": bool(settings.triage_service_url),
+        },
     }
 
 
@@ -191,7 +205,7 @@ def list_emails(
     except HttpError as error:
         logger.exception("Inbox fetch failed")
         raise HTTPException(status_code=502, detail="Gmail could not load the inbox") from error
-    return EmailPage(emails=emails, next_page_token=result.get("nextPageToken"))
+    return EmailPage(emails=triage_client.enrich(emails), next_page_token=result.get("nextPageToken"))
 
 
 @app.get("/emails/{message_id}/body", response_model=EmailBody)
@@ -246,6 +260,16 @@ def draft_reply(
     email_body = find_body(message.get("payload") or {}, "text/plain").strip()
     if not email_body:
         email_body = message.get("snippet") or ""
+    sources = []
+    try:
+        retrieval_query = "\n".join(
+            part
+            for part in [headers.get("subject") or "", email_body, body.extra_instructions.strip()]
+            if part
+        )
+        sources = knowledge_service.search(require_user(request), retrieval_query[:2_000])
+    except Exception:
+        logger.warning("Knowledge retrieval failed; drafting without account context", exc_info=True)
     try:
         draft = reply_writer.generate(
             sender=headers.get("from") or "",
@@ -253,6 +277,7 @@ def draft_reply(
             email_body=email_body,
             tone=body.tone,
             extra_instructions=body.extra_instructions.strip(),
+            context=[source.model_dump(mode="json") for source in sources],
         )
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
@@ -265,7 +290,46 @@ def draft_reply(
         subject=headers.get("subject") or "(no subject)",
         reply_to_email=recipient,
         draft_text=draft,
+        sources=sources,
     )
+
+
+@app.get("/knowledge", response_model=list[KnowledgeDocument])
+def list_knowledge(request: Request) -> list[KnowledgeDocument]:
+    try:
+        return knowledge_service.list(require_user(request))
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/knowledge", response_model=KnowledgeDocument, status_code=201)
+def create_knowledge(request: Request, body: KnowledgeDocumentCreate) -> KnowledgeDocument:
+    try:
+        return knowledge_service.ingest(require_user(request), body)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except Exception as error:
+        logger.exception("Knowledge ingestion failed")
+        raise HTTPException(status_code=502, detail="Could not index the knowledge document") from error
+
+
+@app.post("/knowledge/search", response_model=KnowledgeSearchResponse)
+def search_knowledge(request: Request, body: KnowledgeSearchRequest) -> KnowledgeSearchResponse:
+    try:
+        return KnowledgeSearchResponse(matches=knowledge_service.search(require_user(request), body.query))
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.delete("/knowledge/{document_id}", response_model=ActionResponse)
+def delete_knowledge(request: Request, document_id: UUID) -> ActionResponse:
+    try:
+        deleted = knowledge_service.delete(require_user(request), document_id)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Knowledge document not found")
+    return ActionResponse(ok=True)
 
 
 @app.post("/emails/{message_id}/send", response_model=SendReplyResponse)

@@ -4,6 +4,7 @@ import type {
   DraftTone,
   EmailBody,
   EmailPage,
+  KnowledgeDocument,
 } from "@/lib/types";
 
 export const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
@@ -50,4 +51,14 @@ export const mailApi = {
       body: JSON.stringify({ draft_text: draftText }),
     }),
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  knowledge: {
+    list: () => request<KnowledgeDocument[]>("/knowledge", { cache: "no-store" }),
+    create: (document: { title: string; content: string; source_url?: string }) =>
+      request<KnowledgeDocument>("/knowledge", {
+        method: "POST",
+        body: JSON.stringify(document),
+      }),
+    remove: (documentId: string) =>
+      request<{ ok: boolean }>(`/knowledge/${encodeURIComponent(documentId)}`, { method: "DELETE" }),
+  },
 };

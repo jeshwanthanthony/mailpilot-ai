@@ -10,4 +10,5 @@ __pycache__/
 backend/venv/
 coverage/
 frontend/node_modules/
+intelligence-service/target/
 npm-debug.log*

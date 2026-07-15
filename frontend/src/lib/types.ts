@@ -1,4 +1,5 @@
 export type MailFilter = "inbox" | "unread";
+export type WorkspaceView = "mail" | "knowledge";
 export type DraftTone = "concise" | "friendly" | "professional";
 
 export type EmailSummary = {
@@ -9,6 +10,9 @@ export type EmailSummary = {
   date: string;
   snippet: string;
   is_unread: boolean;
+  priority?: "urgent" | "high" | "normal" | "low" | null;
+  priority_score?: number | null;
+  priority_signals?: string[];
 };
 
 export type EmailBody = {
@@ -32,4 +36,21 @@ export type DraftReply = {
   subject: string;
   reply_to_email: string;
   draft_text: string;
+  sources: KnowledgeCitation[];
+};
+
+export type KnowledgeDocument = {
+  id: string;
+  title: string;
+  source_url: string | null;
+  chunk_count: number;
+  created_at: string;
+};
+
+export type KnowledgeCitation = {
+  document_id: string;
+  title: string;
+  source_url: string | null;
+  content: string;
+  similarity: number;
 };

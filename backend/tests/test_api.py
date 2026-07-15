@@ -24,6 +24,12 @@ def test_email_routes_require_connection() -> None:
     assert response.json()["detail"] == "Connect Gmail to continue"
 
 
+def test_knowledge_routes_require_connection() -> None:
+    response = client.get("/knowledge")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Connect Gmail to continue"
+
+
 def test_rejects_oversized_page() -> None:
     response = client.get("/emails?max_results=500")
     assert response.status_code == 422
